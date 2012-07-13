@@ -1,13 +1,7 @@
 use strict;
 use warnings;
-use Test::More tests => 2;
+use Test::More tests => 4;
 use Event::Wrappable;
-use DDP;
-
-my $sub = event { 1 };
-p $sub;
-$sub = event { 0 };
-p $sub;
 
 my $event_wrapper_counter = 0;
 my $wrapper = Event::Wrappable->add_event_wrapper( sub { 

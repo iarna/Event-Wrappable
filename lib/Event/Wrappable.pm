@@ -101,6 +101,9 @@ sub DESTROY {
     #     Done with event
     #     Second timer triggered
 
+=for test_synopsis
+use v5.10.0;
+
 =head1 DESCRIPTION
 
 This is a helper for creating globally wrapped events listeners.  This is a
