@@ -1,4 +1,4 @@
-# ABSTRACT: Create a registry of filters to pass event listeners through
+# ABSTRACT: Sugar to let you instrument event listeners at a distance
 package Event::Wrappable;
 use strict;
 use warnings;
@@ -147,4 +147,3 @@ way of augmenting all of the event listeners registered during a period of
 time.  See L<AnyEvent::Collect> and L<MooseX::Event> for examples of its
 use.  A lexically scoped variant might be desirable, however I'll have to
 explore the implications of that for my own use cases first.
-
