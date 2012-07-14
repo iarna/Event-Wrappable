@@ -9,11 +9,11 @@ my $wrapper = Event::Wrappable->add_event_wrapper( sub {
     return sub { ++ $event_wrapper_counter; $event->() };
     } );
 
-my $wrapped = event { diag("Wrapped event triggered"); };
+my $wrapped = event { note("Wrapped event triggered"); };
 
 Event::Wrappable->remove_event_wrapper($wrapper);
 
-my $unwrapped = event { diag("Unwrapped event triggered"); };
+my $unwrapped = event { note("Unwrapped event triggered"); };
 
 $wrapped->();
 is( $event_wrapper_counter, 1, "Event wrapper triggered" );
@@ -25,3 +25,4 @@ $wrapped->();
 is( $event_wrapper_counter, 2, "Event wrapper triggered again" );
 
 is( ref($wrapped), "Event::Wrappable", "Returned event sub is blessed");
+

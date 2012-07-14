@@ -2,15 +2,16 @@
 package Event::Wrappable;
 use strict;
 use warnings;
-use Scalar::Util qw( refaddr );
+use Scalar::Util qw( refaddr weaken );
 use Sub::Exporter -setup => {
     exports => [qw( event )],
     groups => { default => [qw( event )] },
     };
 
-our %INSTANCES;
 
-our @EVENT_WRAPPERS;
+my %INSTANCES;
+
+my @EVENT_WRAPPERS;
 
 =classmethod method add_event_wrapper( CodeRef $wrapper ) returns CodeRef
 
@@ -37,6 +38,8 @@ sub remove_event_wrapper {
     return;
 }
 
+my $LAST_ID;
+
 =helper sub event( CodeRef $code ) returns CodeRef
 
 Returns the wrapped code ref, to be passed to an event handler
@@ -46,27 +49,40 @@ Returns the wrapped code ref, to be passed to an event handler
 sub event(&) {
     my( $raw_event ) = @_;
     my $event = $raw_event;
-    for (reverse @EVENT_WRAPPERS) {
-        $event = $_->($event);
+    if ( @EVENT_WRAPPERS ) {
+        for (reverse @EVENT_WRAPPERS) {
+            $event = $_->($event);
+        }
+    }
+    # Unless we wrap the event at least once, we'll leak memory.  I honestly
+    # don't know why.
+    else {
+        $event = sub { goto $raw_event };
     }
     bless $event, __PACKAGE__;
-    my $storage = $INSTANCES{refaddr $event};
-    $storage->{'raw'} = $raw_event;
+    my $storage = $INSTANCES{refaddr $event} = {};
+    weaken( $storage->{'wrapped'} = $event );
+    weaken( $storage->{'base'}    = $raw_event );
     $storage->{'wrappers'} = [ @EVENT_WRAPPERS ];
+    $storage->{'id'} = ++ $LAST_ID;
     return $event;
 }
 
 =method method get_unwrapped() returns CodeRef
+
 Returns the original, unwrapped event handler from the wrapped version.
+
 =cut
 sub get_unwrapped {
     my $self = shift;
-    return $INSTANCES{refaddr $self}->{'raw'};
+    return $INSTANCES{refaddr $self}->{'base'};
 }
 
 =method method get_wrappers() returns Array|ArrayRef
+
 In list context returns an array of the wrappers used on this event.  In
 scalar context returns an arrayref of the wrappers used on this event.
+
 =cut
 sub get_wrappers {
     my $self = shift;
@@ -74,9 +90,29 @@ sub get_wrappers {
     return wantarray ? @$wrappers : $wrappers;
 }
 
+=method method object_id() returns Int
+
+Returns an invariant unique identifier for this event.  This will not change
+even across threads and is suitable for hashing based on an event.
+
+=cut
+sub object_id {
+    my $self = shift;
+    return $INSTANCES{refaddr $self}->{'id'};
+}
+
 sub DESTROY {
     my $self = shift;
     delete $INSTANCES{refaddr $self};
+}
+
+sub CLONE {
+    my $self = shift;
+    foreach (keys %INSTANCES) {
+        my $object = $INSTANCES{$_}{'wrapped'};
+        $INSTANCES{refaddr $object} = $INSTANCES{$_};
+        delete $INSTANCES{$_};
+    }
 }
 
 1;
