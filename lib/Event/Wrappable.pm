@@ -9,9 +9,9 @@ use Sub::Exporter -setup => {
     };
 use Sub::Clone qw( clone_if_immortal );
 
-my %INSTANCES;
+our %INSTANCES;
 
-my @EVENT_WRAPPERS;
+our @EVENT_WRAPPERS;
 
 =classmethod method add_event_wrapper( CodeRef $wrapper ) returns CodeRef
 
