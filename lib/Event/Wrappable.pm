@@ -73,6 +73,11 @@ sub get_unwrapped {
     return $INSTANCES{refaddr $self}->{'base'};
 }
 
+=classmethod method get_wrappers() returns Array|ArrayRef
+
+In list context returns an array of the current event wrappers.  In scalar
+context returns an arrayref of the wrappers used on this event.
+
 =method method get_wrappers() returns Array|ArrayRef
 
 In list context returns an array of the wrappers used on this event.  In
@@ -81,7 +86,9 @@ scalar context returns an arrayref of the wrappers used on this event.
 =cut
 sub get_wrappers {
     my $self = shift;
-    my $wrappers = $INSTANCES{refaddr $self}->{'wrappers'};
+    my $wrappers = ref $self
+                 ? $INSTANCES{refaddr $self}->{'wrappers'}
+                 : \@EVENT_WRAPPERS;
     return wantarray ? @$wrappers : $wrappers;
 }
 
