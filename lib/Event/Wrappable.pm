@@ -4,8 +4,8 @@ use strict;
 use warnings;
 use Scalar::Util qw( refaddr weaken );
 use Sub::Exporter -setup => {
-    exports => [qw( event )],
-    groups => { default => [qw( event )] },
+    exports => [qw( event wrap_events )],
+    groups => { default => [qw( event wrap_events )] },
     };
 use Sub::Clone qw( clone_if_immortal );
 
@@ -40,9 +40,22 @@ sub remove_event_wrapper {
 
 my $LAST_ID;
 
+sub new {
+    my $class = shift;
+    my( $event, $raw_event ) = @_;
+    bless $event, $class;
+    my $storage = $INSTANCES{refaddr $event} = {};
+    weaken( $storage->{'wrapped'} = $event );
+    weaken( $storage->{'base'}    = $raw_event );
+    $storage->{'wrappers'} = [ @EVENT_WRAPPERS ];
+    $storage->{'id'} = ++ $LAST_ID;
+    return $event;
+}
+
 =helper sub event( CodeRef $code ) returns CodeRef
 
-Returns the wrapped code ref, to be passed to an event handler
+Returns the wrapped code ref, to be passed to be an event listener.  This
+code ref will be blessed as Event::Wrappable.
 
 =cut
 
@@ -54,13 +67,20 @@ sub event(&) {
             $event = $_->($event);
         }
     }
-    bless $event, __PACKAGE__;
-    my $storage = $INSTANCES{refaddr $event} = {};
-    weaken( $storage->{'wrapped'} = $event );
-    weaken( $storage->{'base'}    = $raw_event );
-    $storage->{'wrappers'} = [ @EVENT_WRAPPERS ];
-    $storage->{'id'} = ++ $LAST_ID;
-    return $event;
+    return __PACKAGE__->new( $event, $raw_event );
+}
+
+=helper sub wrap_events( CodeRef $code, @wrappers )
+
+Adds @wrappers to the event wrapper list for the duration of $code.
+
+   wrap_events { do_something() }, sub { wrapper() };
+
+=cut
+sub wrap_events(&@) {
+    my( $todo, @wrappers ) = @_;
+    local @EVENT_WRAPPERS = ( @EVENT_WRAPPERS, @wrappers );
+    $todo->();
 }
 
 =method method get_unwrapped() returns CodeRef
@@ -123,8 +143,7 @@ sub CLONE {
     use Event::Wrappable;
     use AnyEvent;
     use EV;
-    
-    my $wrapper = Event::Wrappable->add_event_wrapper( sub { 
+    my $wrapper = Event::Wrappable->add_event_wrapper( sub {
         my( $event ) = @_;
         return sub { say "Calling event..."; $event->(); say "Done with event" };
         } );
