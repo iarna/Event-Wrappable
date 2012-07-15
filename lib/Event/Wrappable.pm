@@ -7,7 +7,7 @@ use Sub::Exporter -setup => {
     exports => [qw( event )],
     groups => { default => [qw( event )] },
     };
-
+use Sub::Clone qw( clone_if_immortal );
 
 my %INSTANCES;
 
@@ -48,16 +48,11 @@ Returns the wrapped code ref, to be passed to an event handler
 
 sub event(&) {
     my( $raw_event ) = @_;
-    my $event = $raw_event;
+    my $event = clone_if_immortal $raw_event;
     if ( @EVENT_WRAPPERS ) {
         for (reverse @EVENT_WRAPPERS) {
             $event = $_->($event);
         }
-    }
-    # Unless we wrap the event at least once, we'll leak memory.  I honestly
-    # don't know why.
-    else {
-        $event = sub { goto $raw_event };
     }
     bless $event, __PACKAGE__;
     my $storage = $INSTANCES{refaddr $event} = {};
