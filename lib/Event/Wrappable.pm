@@ -7,7 +7,7 @@ use Sub::Exporter -setup => {
     exports => [qw( event )],
     groups => { default => [qw( event )] },
     };
-use Sub::Clone qw( clone_if_immortal );
+use Sub::Clone qw( clone_sub );
 
 our %INSTANCES;
 
@@ -61,7 +61,7 @@ code ref will be blessed as Event::Wrappable.
 
 sub event(&) {
     my( $raw_event ) = @_;
-    my $event = clone_if_immortal $raw_event;
+    my $event = clone_sub $raw_event;
     if ( @EVENT_WRAPPERS ) {
         for (reverse @EVENT_WRAPPERS) {
             $event = $_->($event);
