@@ -4,8 +4,8 @@ use strict;
 use warnings;
 use Scalar::Util qw( refaddr weaken );
 use Sub::Exporter -setup => {
-    exports => [qw( event wrap_events )],
-    groups => { default => [qw( event wrap_events )] },
+    exports => [qw( event )],
+    groups => { default => [qw( event )] },
     };
 use Sub::Clone qw( clone_if_immortal );
 
@@ -70,14 +70,15 @@ sub event(&) {
     return __PACKAGE__->new( $event, $raw_event );
 }
 
-=helper sub wrap_events( CodeRef $code, @wrappers )
+=classmethod method wrap_events( CodeRef $code, @wrappers )
 
 Adds @wrappers to the event wrapper list for the duration of $code.
 
-   wrap_events { do_something() }, sub { wrapper() };
+   Event::Wrappable->wrap_events(sub { setup_some_events() }, sub { wrapper() });
 
 =cut
-sub wrap_events(&@) {
+sub wrap_events {
+    my $class = shift;
     my( $todo, @wrappers ) = @_;
     local @EVENT_WRAPPERS = ( @EVENT_WRAPPERS, @wrappers );
     $todo->();
