@@ -1,5 +1,7 @@
 =pod
 
+=encoding utf-8
+
 =head1 NAME
 
 Event::Wrappable - Sugar to let you instrument event listeners at a distance
@@ -13,8 +15,7 @@ version 0.1.0
     use Event::Wrappable;
     use AnyEvent;
     use EV;
-    
-    my $wrapper = Event::Wrappable->add_event_wrapper( sub { 
+    my $wrapper = Event::Wrappable->add_event_wrapper( sub {
         my( $event ) = @_;
         return sub { say "Calling event..."; $event->(); say "Done with event" };
         } );
@@ -48,6 +49,17 @@ to be added as an argument, and return a wrapped event.
 
 Removes a previously added event wrapper.
 
+=head2 method wrap_events( CodeRef $code, @wrappers )
+
+Adds @wrappers to the event wrapper list for the duration of $code.
+
+   Event::Wrappable->wrap_events(sub { setup_some_events() }, sub { wrapper() });
+
+=head2 method get_wrappers() returns Array|ArrayRef
+
+In list context returns an array of the current event wrappers.  In scalar
+context returns an arrayref of the wrappers used on this event.
+
 =head1 METHODS
 
 =head2 method get_unwrapped() returns CodeRef
@@ -68,9 +80,50 @@ even across threads and is suitable for hashing based on an event.
 
 =head2 sub event( CodeRef $code ) returns CodeRef
 
-Returns the wrapped code ref, to be passed to an event handler
+Returns the wrapped code ref, to be passed to be an event listener.  This
+code ref will be blessed as Event::Wrappable.
 
 =for test_synopsis use v5.10.0;
+
+=head1 SOURCE
+
+The development version is on github at L<http://https://github.com/iarna/Event-Wrappable>
+and may be cloned from L<git://https://github.com/iarna/Event-Wrappable.git>
+
+=for :stopwords cpan testmatrix url annocpan anno bugtracker rt cpants kwalitee diff irc mailto metadata placeholders metacpan
+
+=head1 SUPPORT
+
+=head2 Websites
+
+The following websites have more information about this module, and may be of help to you. As always,
+in addition to those websites please use your favorite search engine to discover more resources.
+
+=over 4
+
+=item *
+
+MetaCPAN
+
+A modern, open-source CPAN search engine, useful to view POD in HTML format.
+
+L<http://metacpan.org/release/Event-Wrappable>
+
+=back
+
+=head2 Bugs / Feature Requests
+
+Please report any bugs at L<https://github.com/iarna/Event-Wrappable/issues>.
+
+=head2 Source Code
+
+The code is open to the world, and available for you to hack on. Please feel free to browse it and play
+with it, or whatever. If you want to contribute patches, please send me a diff or prod me to pull
+from your repository :)
+
+L<https://github.com/iarna/Event-Wrappable>
+
+  git clone https://github.com/iarna/Event-Wrappable.git
 
 =head1 AUTHOR
 
@@ -105,6 +158,7 @@ RENDERED INACCURATE OR LOSSES SUSTAINED BY YOU OR THIRD PARTIES OR A
 FAILURE OF THE SOFTWARE TO OPERATE WITH ANY OTHER SOFTWARE), EVEN IF
 SUCH HOLDER OR OTHER PARTY HAS BEEN ADVISED OF THE POSSIBILITY OF SUCH
 DAMAGES.
+
 
 =cut
 
