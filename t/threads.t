@@ -16,7 +16,7 @@ BEGIN {
 note("Starting up");
 
 my $event_wrapper_counter = 0;
-my $wrapper = Event::Wrappable->add_event_wrapper( sub { 
+my $wrapper = Event::Wrappable->add_event_wrapper( sub {
     my( $event ) = @_;
     return sub { ++ $event_wrapper_counter; $event->() };
     } );

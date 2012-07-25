@@ -13,29 +13,21 @@ our %INSTANCES;
 
 our @EVENT_WRAPPERS;
 
-=classmethod method add_event_wrapper( CodeRef $wrapper ) returns CodeRef
+=classmethod method wrap_events( CodeRef $code, @wrappers )
 
-Wrappers are called in reverse declaration order.  They take a the event
-to be added as an argument, and return a wrapped event.
+Adds @wrappers to the event wrapper list for the duration of $code.
 
-=cut
+   Event::Wrappable->wrap_events(sub { setup_some_events() }, sub { wrapper() });
 
-sub add_event_wrapper {
-    my( $wrapper ) = @_[1..$#_];
-    push @EVENT_WRAPPERS, $wrapper;
-    return $wrapper;
-}
-
-=classmethod method remove_event_wrapper( CodeRef $wrapper )
-
-Removes a previously added event wrapper.
+This change to the wrapper list is dynamically scoped, so any events
+registered by functions you call will be wrapped as well.
 
 =cut
-
-sub remove_event_wrapper {
-    my( $wrapper ) = @_[1..$#_];
-    @EVENT_WRAPPERS = grep { $_ != $wrapper } @EVENT_WRAPPERS;
-    return;
+sub wrap_events {
+    my $class = shift;
+    my( $todo, @wrappers ) = @_;
+    local @EVENT_WRAPPERS = ( @EVENT_WRAPPERS, @wrappers );
+    $todo->();
 }
 
 my $LAST_ID;
@@ -77,7 +69,9 @@ ref basically the equivalent of:
 
     sub { $object->$method(@_) }
 
-Except that the wrapper sub removes itself from the call stack.
+Except faster and without the anonymous wrapper sub in the call stack.  Method
+lookup is done when you register the event, which means that if you can't
+apply any roles to the object after you register event listeners using it.
 
 =cut
 
@@ -85,20 +79,6 @@ sub event_method($$) {
     my( $object, $method ) = @_;
     my $method_sub = ref($method) eq 'CODE' ? $method : $object->can($method);
     return event { unshift @_, $object; goto $method_sub };
-}
-
-=classmethod method wrap_events( CodeRef $code, @wrappers )
-
-Adds @wrappers to the event wrapper list for the duration of $code.
-
-   Event::Wrappable->wrap_events(sub { setup_some_events() }, sub { wrapper() });
-
-=cut
-sub wrap_events {
-    my $class = shift;
-    my( $todo, @wrappers ) = @_;
-    local @EVENT_WRAPPERS = ( @EVENT_WRAPPERS, @wrappers );
-    $todo->();
 }
 
 =method method get_unwrapped() returns CodeRef
@@ -160,21 +140,50 @@ sub CLONE {
 
     use Event::Wrappable;
     use AnyEvent;
-    use EV;
-    my $wrapper = Event::Wrappable->add_event_wrapper( sub {
-        my( $event ) = @_;
-        return sub { say "Calling event..."; $event->(); say "Done with event" };
-        } );
-    my $w = AE::timer 1, 0, event { say "First timer triggered" };
-    Event::Wrappable->remove_event_wrapper($wrapper);
-    my $w2 = AE::timer 2, 0, event { say "Second timer triggered" };
-    EV::loop;
+    use AnyEvent::Collect;
+    my @wrappers = (
+        sub {
+            my( $event ) = @_;
+            return sub { say "Calling event..."; $event->(); say "Done with event" };
+        },
+    );
+
+    my($w1,$w2);
+    # Collect just waits till all the events registered in its block fire
+    # before returning.
+    collect {
+        Event::Wrappable->wrap_events( sub {
+            $w1 = AE::timer 0.1, 0, event { say "First timer triggered" };
+        }, @wrappers );
+        $w2 = AE::timer 0.2, 0, event { say "Second timer triggered" };
+    };
 
     # Will print:
     #     Calling event...
     #     First timer triggered
     #     Done with event
     #     Second timer triggered
+
+    # The below does the same thing, but using method handlers instead.
+
+    use MooseX::Declare;
+    class ExampleClass {
+        method listener_a {
+            say "First timer event handler";
+        }
+        method listener_b {
+            say "Second timer event handler";
+        }
+    }
+
+    collect {
+        my $listeners = ExampleClass->new;
+        Event::Wrappable->wrap_events( sub {
+            $w1 = AE::timer 0.1, 0, event_method $listeners=>"listener_a";
+        }, @wrappers );
+        $w2 = AE::timer 0.2, 0, event_method $listeners=>"listener_b";
+    };
+
 
 =for test_synopsis
 use v5.10.0;
@@ -184,5 +193,7 @@ use v5.10.0;
 This is a helper for creating globally wrapped events listeners.  This is a
 way of augmenting all of the event listeners registered during a period of
 time.  See L<AnyEvent::Collect> and L<MooseX::Event> for examples of its
-use.  A lexically scoped variant might be desirable, however I'll have to
-explore the implications of that for my own use cases first.
+use.
+
+A lexically scoped variant might be desirable, however I'll have to explore
+the implications of that for my own use cases first.
