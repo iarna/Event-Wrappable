@@ -4,8 +4,8 @@ use strict;
 use warnings;
 use Scalar::Util qw( refaddr weaken );
 use Sub::Exporter -setup => {
-    exports => [qw( event )],
-    groups => { default => [qw( event )] },
+    exports => [qw( event event_method )],
+    groups => { default => [qw( event event_method )] },
     };
 use Sub::Clone qw( clone_sub );
 
@@ -68,6 +68,23 @@ sub event(&) {
         }
     }
     return __PACKAGE__->new( $event, $raw_event );
+}
+
+=helper sub event_method( $object, $method ) returns CodeRef
+
+Returns a wrapped code ref suitable for use in an event listener.  The code
+ref basically the equivalent of:
+
+    sub { $object->$method(@_) }
+
+Except that the wrapper sub removes itself from the call stack.
+
+=cut
+
+sub event_method($$) {
+    my( $object, $method ) = @_;
+    my $method_sub = ref($method) eq 'CODE' ? $method : $object->can($method);
+    return event { unshift @_, $object; goto $method_sub };
 }
 
 =classmethod method wrap_events( CodeRef $code, @wrappers )
