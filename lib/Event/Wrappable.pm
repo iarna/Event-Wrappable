@@ -32,7 +32,8 @@ sub wrap_events {
 
 my $LAST_ID;
 
-sub new {
+
+sub _new {
     my $class = shift;
     my( $event, $raw_event ) = @_;
     bless $event, $class;
@@ -59,7 +60,7 @@ sub event(&) {
             $event = $_->($event);
         }
     }
-    return __PACKAGE__->new( $event, $raw_event );
+    return __PACKAGE__->_new( $event, $raw_event );
 }
 
 =helper sub event_method( $object, $method ) returns CodeRef
