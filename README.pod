@@ -14,15 +14,23 @@ version 0.1.0
 
     use Event::Wrappable;
     use AnyEvent;
-    use EV;
-    my $wrapper = Event::Wrappable->add_event_wrapper( sub {
-        my( $event ) = @_;
-        return sub { say "Calling event..."; $event->(); say "Done with event" };
-        } );
-    my $w = AE::timer 1, 0, event { say "First timer triggered" };
-    Event::Wrappable->remove_event_wrapper($wrapper);
-    my $w2 = AE::timer 2, 0, event { say "Second timer triggered" };
-    EV::loop;
+    use AnyEvent::Collect;
+    my @wrappers = (
+        sub {
+            my( $event ) = @_;
+            return sub { say "Calling event..."; $event->(); say "Done with event" };
+        },
+    );
+
+    my($w1,$w2);
+    # Collect just waits till all the events registered in its block fire
+    # before returning.
+    collect {
+        Event::Wrappable->wrap_events( sub {
+            $w1 = AE::timer 0.1, 0, event { say "First timer triggered" };
+        }, @wrappers );
+        $w2 = AE::timer 0.2, 0, event { say "Second timer triggered" };
+    };
 
     # Will print:
     #     Calling event...
@@ -30,30 +38,46 @@ version 0.1.0
     #     Done with event
     #     Second timer triggered
 
+    # The below does the same thing, but using method handlers instead.
+
+    use MooseX::Declare;
+    class ExampleClass {
+        method listener_a {
+            say "First timer event handler";
+        }
+        method listener_b {
+            say "Second timer event handler";
+        }
+    }
+
+    collect {
+        my $listeners = ExampleClass->new;
+        Event::Wrappable->wrap_events( sub {
+            $w1 = AE::timer 0.1, 0, event_method $listeners=>"listener_a";
+        }, @wrappers );
+        $w2 = AE::timer 0.2, 0, event_method $listeners=>"listener_b";
+    };
+
 =head1 DESCRIPTION
 
 This is a helper for creating globally wrapped events listeners.  This is a
 way of augmenting all of the event listeners registered during a period of
 time.  See L<AnyEvent::Collect> and L<MooseX::Event> for examples of its
-use.  A lexically scoped variant might be desirable, however I'll have to
-explore the implications of that for my own use cases first.
+use.
+
+A lexically scoped variant might be desirable, however I'll have to explore
+the implications of that for my own use cases first.
 
 =head1 CLASS METHODS
-
-=head2 method add_event_wrapper( CodeRef $wrapper ) returns CodeRef
-
-Wrappers are called in reverse declaration order.  They take a the event
-to be added as an argument, and return a wrapped event.
-
-=head2 method remove_event_wrapper( CodeRef $wrapper )
-
-Removes a previously added event wrapper.
 
 =head2 method wrap_events( CodeRef $code, @wrappers )
 
 Adds @wrappers to the event wrapper list for the duration of $code.
 
    Event::Wrappable->wrap_events(sub { setup_some_events() }, sub { wrapper() });
+
+This change to the wrapper list is dynamically scoped, so any events
+registered by functions you call will be wrapped as well.
 
 =head2 method get_wrappers() returns Array|ArrayRef
 
@@ -83,6 +107,17 @@ even across threads and is suitable for hashing based on an event.
 Returns the wrapped code ref, to be passed to be an event listener.  This
 code ref will be blessed as Event::Wrappable.
 
+=head2 sub event_method( $object, $method ) returns CodeRef
+
+Returns a wrapped code ref suitable for use in an event listener.  The code
+ref basically the equivalent of:
+
+    sub { $object->$method(@_) }
+
+Except faster and without the anonymous wrapper sub in the call stack.  Method
+lookup is done when you register the event, which means that if you can't
+apply any roles to the object after you register event listeners using it.
+
 =for test_synopsis use v5.10.0;
 
 =head1 SOURCE
@@ -96,8 +131,7 @@ and may be cloned from L<git://https://github.com/iarna/Event-Wrappable.git>
 
 =head2 Websites
 
-The following websites have more information about this module, and may be of help to you. As always,
-in addition to those websites please use your favorite search engine to discover more resources.
+More information can be found at:
 
 =over 4
 
@@ -114,16 +148,6 @@ L<http://metacpan.org/release/Event-Wrappable>
 =head2 Bugs / Feature Requests
 
 Please report any bugs at L<https://github.com/iarna/Event-Wrappable/issues>.
-
-=head2 Source Code
-
-The code is open to the world, and available for you to hack on. Please feel free to browse it and play
-with it, or whatever. If you want to contribute patches, please send me a diff or prod me to pull
-from your repository :)
-
-L<https://github.com/iarna/Event-Wrappable>
-
-  git clone https://github.com/iarna/Event-Wrappable.git
 
 =head1 AUTHOR
 
