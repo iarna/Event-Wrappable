@@ -16,14 +16,14 @@ BEGIN {
 note("Starting up");
 
 my $event_wrapper_counter = 0;
-my $wrapper = Event::Wrappable->add_event_wrapper( sub {
-    my( $event ) = @_;
-    return sub { ++ $event_wrapper_counter; $event->() };
-    } );
 
-my $wrapped = event { note("Wrapped event triggered"); };
-
-Event::Wrappable->remove_event_wrapper($wrapper);
+my $wrapped;
+Event::Wrappable->wrap_events( sub {
+    $wrapped = event { note("Wrapped event triggered"); };
+}, sub {
+    my( $listener ) = @_;
+    return sub { ++ $event_wrapper_counter; $listener->() };
+});
 
 my $unwrapped = event { note("Unwrapped event triggered"); };
 
