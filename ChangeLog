@@ -2,6 +2,8 @@ Revision history for perl module Event::Wrappable
 
 {{$NEXT}}
 
+0.1.1     2012-07-30
+
 0.1.0     2012-07-29
 
 - Initial release.
